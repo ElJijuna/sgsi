@@ -3,7 +3,7 @@
 
 	class Amenaza{
 		
-		private $coneixon;
+		private $conexion;
 
 		public function __construct(){
             $this->conexion = new Database();

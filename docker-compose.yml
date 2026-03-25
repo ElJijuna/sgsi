@@ -1,0 +1,67 @@
+version: '3.8'
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: sgsi-app
+    ports:
+      - "80:80"
+    volumes:
+      - .:/var/www/html
+      - app_logs:/var/www/html/logs
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DB_DRIVER: pgsql
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_NAME: sgsi_db
+      DB_USER: sgsi_user
+      DB_PASSWORD: sgsi_password
+      PHP_ENV: development
+    networks:
+      - sgsi_network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  db:
+    image: postgres:15-alpine
+    container_name: sgsi-db
+    environment:
+      POSTGRES_DB: sgsi_db
+      POSTGRES_USER: sgsi_user
+      POSTGRES_PASSWORD: sgsi_password
+      PGDATA: /var/lib/postgresql/data/pgdata
+    volumes:
+      - db_data:/var/lib/postgresql/data
+      - ./db/sgsi.backup:/docker-entrypoint-initdb.d/sgsi.backup
+      - ./db/restore_backup.sh:/docker-entrypoint-initdb.d/99-restore_backup.sh
+    networks:
+      - sgsi_network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U sgsi_user -d sgsi_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    ports:
+      - "5432:5432"
+
+volumes:
+  db_data:
+    driver: local
+  app_logs:
+    driver: local
+
+networks:
+  sgsi_network:
+    driver: bridge
